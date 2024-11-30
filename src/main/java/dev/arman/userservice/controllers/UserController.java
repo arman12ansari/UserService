@@ -7,7 +7,6 @@ import dev.arman.userservice.exceptions.PasswordIsIncorrectException;
 import dev.arman.userservice.exceptions.TokenNotExistsException;
 import dev.arman.userservice.exceptions.UserAlreadyExistsException;
 import dev.arman.userservice.exceptions.UserNotExistsException;
-import dev.arman.userservice.models.Token;
 import dev.arman.userservice.models.User;
 import dev.arman.userservice.services.UserService;
 import org.springframework.http.HttpStatus;
@@ -36,7 +35,7 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Token> login(@RequestBody LoginRequestDto loginRequestDto) throws UserNotExistsException, PasswordIsIncorrectException {
+    public ResponseEntity<String> login(@RequestBody LoginRequestDto loginRequestDto) throws UserNotExistsException, PasswordIsIncorrectException {
         String email = loginRequestDto.getEmail();
         String password = loginRequestDto.getPassword();
 

@@ -8,13 +8,15 @@ import dev.arman.userservice.models.Token;
 import dev.arman.userservice.models.User;
 import dev.arman.userservice.repositories.TokenRepository;
 import dev.arman.userservice.repositories.UserRepository;
-import org.apache.commons.lang3.RandomStringUtils;
+import io.jsonwebtoken.Jwts;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.util.Date;
 import java.util.Optional;
+
+import static io.jsonwebtoken.SignatureAlgorithm.HS256;
 
 /**
  * @author mdarmanansari
@@ -24,6 +26,8 @@ public class UserServiceImpl implements UserService {
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final UserRepository userRepository;
     private final TokenRepository tokenRepository;
+    @Value("${app.secret.key}")
+    private String secretKey;
 
     public UserServiceImpl(BCryptPasswordEncoder bCryptPasswordEncoder, UserRepository userRepository, TokenRepository tokenRepository) {
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
@@ -50,7 +54,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Token login(String email, String password) throws UserNotExistsException, PasswordIsIncorrectException {
+    public String login(String email, String password) throws UserNotExistsException, PasswordIsIncorrectException {
         Optional<User> optionalUser = userRepository.findByEmail(email);
 
         if (optionalUser.isEmpty()) {
@@ -62,11 +66,13 @@ public class UserServiceImpl implements UserService {
         if (!bCryptPasswordEncoder.matches(password, user.getHashedPassword())) {
             throw new PasswordIsIncorrectException("Password is incorrect");
         }
-
+/*
         LocalDate today = LocalDate.now();
         LocalDate thirtyDaysLater = today.plusDays(30);
 
         Date expiryDate = java.sql.Date.valueOf(thirtyDaysLater);
+
+        To generate token by random value and insert into database
 
         Token token = new Token();
         token.setUser(user);
@@ -76,6 +82,19 @@ public class UserServiceImpl implements UserService {
         Token savedToken = tokenRepository.save(token);
 
         return savedToken;
+
+ */
+        String jwtToken = Jwts.builder()
+                .setSubject(user.getEmail())
+                .setIssuer("dev.arman.userservice")
+                .claim("name", user.getName())
+                .claim("role", "user")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 1 day expiration
+                .signWith(HS256, secretKey) // Use a secure key in production
+                .compact();
+
+        return jwtToken;
     }
 
     @Override
