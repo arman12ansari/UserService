@@ -42,7 +42,7 @@ public class ExceptionHandler {
     public ResponseEntity<ExceptionDto> handleTokenNotExistsException(TokenNotExistsException exception) {
         ExceptionDto exceptionDto = new ExceptionDto();
         exceptionDto.setMessage(exception.getMessage());
-        exceptionDto.setDetails("Session expired");
+        exceptionDto.setDetails(exception.getLocalizedMessage());
         return new ResponseEntity<>(exceptionDto, HttpStatus.NOT_FOUND);
     }
 }

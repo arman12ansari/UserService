@@ -8,7 +8,7 @@ import dev.arman.userservice.models.Token;
 import dev.arman.userservice.models.User;
 import dev.arman.userservice.repositories.TokenRepository;
 import dev.arman.userservice.repositories.UserRepository;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -113,6 +113,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User validateToken(String token) throws TokenNotExistsException {
+        /* To validate token from database
         Optional<Token> optionalToken = tokenRepository.
                 findByValueAndDeletedEqualsAndExpiryDateGreaterThan(token, false, new Date());
 
@@ -123,5 +124,36 @@ public class UserServiceImpl implements UserService {
         Token token1 = optionalToken.get();
 
         return token1.getUser();
+         */
+        User user = null;
+        try {
+            Claims claims = Jwts.parser()
+                    .setSigningKey(secretKey)   // Use the same secret key as when signing the JWT
+                    .parseClaimsJws(token)      // Parse the token (verifies signature and expiration)
+                    .getBody();
+
+            Date expiryDate = claims.getExpiration();
+            if (expiryDate.before(new Date())) {
+                throw new TokenNotExistsException("Token expired");
+            }
+
+            String email = claims.getSubject();
+            Optional<User> optionalUser = userRepository.findByEmail(email);
+            if (optionalUser.isEmpty()) {
+                throw new TokenNotExistsException("User not found");
+            }
+            user = optionalUser.get();
+        } catch (ExpiredJwtException e) {
+            throw new TokenNotExistsException(e.getMessage());
+        } catch (SignatureException e) {
+            throw new TokenNotExistsException(e.getMessage());
+        } catch (MalformedJwtException e) {
+            throw new TokenNotExistsException(e.getMessage());
+        } catch (UnsupportedJwtException e) {
+            throw new TokenNotExistsException(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            throw new TokenNotExistsException(e.getMessage());
+        }
+        return user;
     }
 }
