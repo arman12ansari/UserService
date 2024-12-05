@@ -1,5 +1,8 @@
 package dev.arman.userservice.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.arman.userservice.dtos.SendEmailEventDto;
 import dev.arman.userservice.exceptions.PasswordIsIncorrectException;
 import dev.arman.userservice.exceptions.TokenNotExistsException;
 import dev.arman.userservice.exceptions.UserAlreadyExistsException;
@@ -10,6 +13,7 @@ import dev.arman.userservice.repositories.TokenRepository;
 import dev.arman.userservice.repositories.UserRepository;
 import io.jsonwebtoken.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -26,13 +30,17 @@ public class UserServiceImpl implements UserService {
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final UserRepository userRepository;
     private final TokenRepository tokenRepository;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
     @Value("${app.secret.key}")
     private String secretKey;
 
-    public UserServiceImpl(BCryptPasswordEncoder bCryptPasswordEncoder, UserRepository userRepository, TokenRepository tokenRepository) {
+    public UserServiceImpl(BCryptPasswordEncoder bCryptPasswordEncoder, UserRepository userRepository, TokenRepository tokenRepository, KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper) {
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -49,6 +57,21 @@ public class UserServiceImpl implements UserService {
         user.setHashedPassword(bCryptPasswordEncoder.encode(password));
 
         User savedUser = userRepository.save(user);
+
+        SendEmailEventDto sendEmailEventDto = new SendEmailEventDto();
+        sendEmailEventDto.setTo(email);
+        sendEmailEventDto.setFrom("info@scaler.com");
+        sendEmailEventDto.setSubject("Welcome to Scaler");
+        sendEmailEventDto.setBody(
+                "Thanks for signing up at Scaler." +
+                        "We are looking forward to you achieving a lot of success. Team Scaler"
+        );
+
+        try {
+            kafkaTemplate.send("sendEmail", objectMapper.writeValueAsString(sendEmailEventDto));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Error while sending email");
+        }
 
         return savedUser;
     }
